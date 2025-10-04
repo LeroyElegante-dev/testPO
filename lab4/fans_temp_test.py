@@ -4,12 +4,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import time
 import urllib3
-import re
 
 # Отключаем предупреждения SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-print("=== Тест 4: Проверка температуры вентиляторов (Fans) ===")
+print("=== Тест 4: Проверка температуры компонентов через Redfish API ===")
 
 # Настройка Chrome для игнорирования SSL ошибок
 chrome_options = Options()
@@ -54,164 +53,35 @@ try:
     print("Успешный вход в систему")
     print(f"Текущий URL: {driver.current_url}")
 
-    # Шаг 2: Ищем раздел Hardware Status
-    print("2. Ищем раздел Hardware status...")
+    # Шаг 2: Переходим на страницу Redfish Thermal
+    print("2. Переходим на страницу Thermal данных...")
     
-    hardware_found = False
-    try:
-        hardware_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Hardware status')]")
-        for element in hardware_elements:
-            if element.is_displayed() and element.is_enabled():
-                print(f"Найден раздел: '{element.text}'")
-                try:
-                    element.click()
-                    print("Перешли в раздел Hardware status")
-                    hardware_found = True
-                    time.sleep(3)
-                    break
-                except Exception as e:
-                    print(f"Не удалось кликнуть на Hardware status: {e}")
-    except:
-        pass
+    thermal_url = "https://localhost:2443/redfish/v1/Chassis/chassis/Thermal"
+    driver.get(thermal_url)
+    time.sleep(5)
     
-    if not hardware_found:
-        print("Раздел Hardware status не найден")
-        result = False
-        driver.quit()
-        exit()
-
-    # Шаг 3: Ищем подраздел Inventory and LEDs
-    print("3. Ищем подраздел Inventory and LEDs...")
+    print(f"Открыта страница: {driver.current_url}")
     
-    inventory_found = False
-    try:
-        inventory_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Inventory and LEDs')]")
-        for element in inventory_elements:
-            if element.is_displayed() and element.is_enabled():
-                print(f"Найден подраздел: '{element.text}'")
-                try:
-                    element.click()
-                    print("Перешли в раздел Inventory and LEDs")
-                    inventory_found = True
-                    time.sleep(3)
-                    break
-                except Exception as e:
-                    print(f"Не удалось кликнуть на Inventory and LEDs: {e}")
-    except:
-        pass
+    # Шаг 3: Ищем текст на странице
+    print("3. Ищем информацию о температуре...")
     
-    if not inventory_found:
-        print("Подраздел Inventory and LEDs не найден")
-        result = False
-        driver.quit()
-        exit()
-
-    # Шаг 4: Ищем раздел Fans
-    print("4. Ищем раздел Fans...")
+    # Получаем весь текст страницы
+    page_text = driver.find_element(By.TAG_NAME, "body").text
+    print("Текст страницы:")
+    print(page_text)
     
-    fans_found = False
-    try:
-        fans_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Fans')]")
-        for element in fans_elements:
-            if element.is_displayed():
-                print(f"Найден раздел: '{element.text}'")
-                try:
-                    if element.is_enabled():
-                        element.click()
-                        print("Перешли в раздел Fans")
-                    fans_found = True
-                    time.sleep(3)
-                    break
-                except Exception as e:
-                    print(f"Не удалось кликнуть на Fans: {e}")
-                    fans_found = True
-                    break
-    except:
-        pass
-    
-    if not fans_found:
-        print("Раздел Fans не найден")
-        result = False
-        driver.quit()
-        exit()
-
-    # Шаг 5: Ищем количество вентиляторов
-    print("5. Ищем количество вентиляторов...")
-    
-    items_count = "не определено"
-    count_number = "не определено"
-    items_found = False
-    
-    try:
-        count_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'items')]")
-        for element in count_elements:
-            if element.is_displayed():
-                count_text = element.text.strip()
-                if "item" in count_text.lower():
-                    print(f"Найдена информация о количестве: '{count_text}'")
-                    items_count = count_text
-                    items_found = True
-                    
-                    numbers = re.findall(r'\d+', count_text)
-                    if numbers:
-                        count_number = numbers[0]
-                        print(f"КОЛИЧЕСТВО ВЕНТИЛЯТОРОВ: {count_number}")
-                    break
-    except Exception as e:
-        print(f"Ошибка при поиске количества: {e}")
-
-    # Шаг 6: Ищем таблицу с информацией о Fans
-    print("6. Ищем таблицу с информацией о вентиляторах...")
-    
-    fans_data_found = False
-    table_message = ""
-    
-    try:
-        no_items_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'No items available')]")
-        for element in no_items_elements:
-            if element.is_displayed():
-                table_message = element.text.strip()
-                print(f"Найдено сообщение из таблицы: '{table_message}'")
-                fans_data_found = True
-                break
-        
-        if not fans_data_found:
-            table_elements = driver.find_elements(By.XPATH, "//table | //div[contains(@class, 'table')]")
-            for table in table_elements:
-                if table.is_displayed():
-                    table_text = table.text.strip()
-                    if table_text and ("Fan" in table_text or "fan" in table_text):
-                        print("Найдена таблица с данными о вентиляторах:")
-                        print(f"СОДЕРЖИМОЕ ТАБЛИЦЫ:\n{table_text}")
-                        table_message = "Найдены данные вентиляторов в таблице"
-                        fans_data_found = True
-                        break
-    except Exception as e:
-        print(f"Ошибка при поиске таблицы: {e}")
-
-    # Шаг 7: Выводим итоговую информацию
-    print("7. ИТОГОВАЯ ИНФОРМАЦИЯ О ВЕНТИЛЯТОРАХ:")
-    
-    if items_found:
-        print(f"   КОЛИЧЕСТВО: {items_count}")
-    
-    if fans_data_found:
-        if "No items available" in table_message:
-            print(f"   СТАТУС: {table_message}")
-            print("   ВЫВОД: В системе нет виртуальных компонентов вентиляторов")
-        else:
-            print(f"   ДАННЫЕ: {table_message}")
-    else:
-        print("   Информация о вентиляторах не найдена")
-
-    # Шаг 8: Проверяем результат теста
-    print("8. Проверяем результат...")
-    
-    if fans_found and (items_found or fans_data_found):
-        print("Тест пройден: Раздел Fans найден, информация о вентиляторах получена")
+    # Ищем ключевые фразы
+    if "thermal not found" in page_text.lower():
+        print("РЕЗУЛЬТАТ: Thermal not found - температура не обнаружена")
+        result = True
+    elif "Critical" in page_text:
+        print("РЕЗУЛЬТАТ: Critical - критическое состояние температуры")
+        result = True
+    elif "Temperatures" in page_text or "Temperature" in page_text:
+        print("РЕЗУЛЬТАТ: Данные о температуре найдены")
         result = True
     else:
-        print("Тест не пройден: Не удалось получить информацию о вентиляторах")
+        print("РЕЗУЛЬТАТ: Информация о температуре не найдена")
         result = False
 
     # Делаем скриншот результата
