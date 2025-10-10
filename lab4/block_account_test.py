@@ -48,7 +48,7 @@ try:
             # Очищаем поля и вводим неверные данные
             username_field.clear()
             password_field.clear()
-            username_field.send_keys("root")
+            username_field.send_keys("testuser")
             password_field.send_keys(f"wrongpassword{attempt}")
             
             # Находим и нажимаем кнопку Log in
@@ -62,7 +62,7 @@ try:
             
             if login_button:
                 login_button.click()
-                print(f"Введены данные: root / wrongpassword{attempt}")
+                print(f"Введены данные: testuser / wrongpassword{attempt}")
             else:
                 print("Кнопка Log in не найдена")
         
@@ -99,6 +99,10 @@ try:
     # Шаг 3: Пробуем войти с правильными данными после неудачных попыток
     print("3. Пробуем войти с правильными данными...")
     
+    # Запоминаем URL ДО попытки входа
+    url_before_login = driver.current_url
+    print(f"URL до входа: {url_before_login}")
+    
     # Находим поля ввода
     inputs = driver.find_elements(By.TAG_NAME, "input")
     username_field = None
@@ -115,8 +119,8 @@ try:
         # Очищаем поля и вводим правильные данные
         username_field.clear()
         password_field.clear()
-        username_field.send_keys("root")
-        password_field.send_keys("0penBmc")
+        username_field.send_keys("testuser")
+        password_field.send_keys("qweqwe123")
         
         # Нажимаем кнопку Log in
         login_button = None
@@ -129,47 +133,52 @@ try:
         
         if login_button:
             login_button.click()
-            print("Введены правильные данные: root / 0penBmc")
+            print("Введены правильные данные: testuser / qweqwe123")
     
-    # Шаг 4: Проверяем результат
-    print("4. Проверяем результат...")
-    time.sleep(3)
+    # Ждем завершения попытки входа
+    time.sleep(5)
     
-    current_url = driver.current_url
-    print(f"Текущий URL: {current_url}")
+    # Запоминаем URL ПОСЛЕ попытки входа
+    url_after_login = driver.current_url
+    print(f"URL после входа: {url_after_login}")
     
-    # Проверяем удалось ли войти
-    if "login" not in current_url:
-        print("Тест пройден: Учетная запись НЕ заблокирована после 5 неудачных попыток")
-        print("Система разрешила вход с правильными данными")
+    # Шаг 4: Проверяем результат с помощью assert
+    print("4. Проверяем результат с помощью assert...")
+    
+    # Проверяем, остались ли мы на странице логина
+    # Если да - значит вход не удался (аккаунт заблокирован) - ТЕСТ ПРОЙДЕН
+    # Если нет - значит вошли успешно (аккаунт не заблокирован) - ТЕСТ НЕ ПРОЙДЕН
+    
+    try:
+        # Assert: проверяем что остались на странице логина
+        assert "login" in url_after_login.lower(), f"Ожидалось остаться на странице логина, но текущий URL: {url_after_login}"
+        
+        print("ТЕСТ ПРОЙДЕН: Учетная запись заблокирована после неудачных попыток")
+        print("Не удалось войти с правильными данными - остались на странице логина")
         result = True
-    else:
-        # Ищем сообщение о блокировке
-        block_found = False
-        block_messages = [
-            "Account locked",
-            "Account blocked",
-            "Too many attempts", 
-            "locked",
-            "blocked"
-        ]
         
-        for message in block_messages:
-            try:
-                elements = driver.find_elements(By.XPATH, f"//*[contains(text(), '{message}')]")
-                if elements:
-                    print(f"Найдено сообщение о блокировке: '{elements[0].text}'")
-                    block_found = True
-                    break
-            except:
-                continue
-        
-        if block_found:
-            print("Тест пройден: Учетная запись заблокирована после нескольких неудачных попыток")
-            result = True
-        else:
-            print("Тест не пройден: Не удалось определить статус блокировки")
-            result = False
+    except AssertionError as e:
+        print(f"ТЕСТ НЕ ПРОЙДЕН: {e}")
+        print("Учетная запись НЕ заблокирована - удалось войти с правильными данными")
+        result = False
+
+    # Дополнительная проверка: ищем сообщение о блокировке
+    block_messages = [
+        "Account locked",
+        "Account blocked",
+        "Too many attempts", 
+        "locked",
+        "blocked"
+    ]
+    
+    for message in block_messages:
+        try:
+            elements = driver.find_elements(By.XPATH, f"//*[contains(text(), '{message}')]")
+            if elements:
+                print(f"Найдено сообщение о блокировке: '{elements[0].text}'")
+                break
+        except:
+            continue
 
     # Делаем скриншот результата
     screenshot_name = "test3_success.png" if result else "test3_failed.png"
