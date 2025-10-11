@@ -2,7 +2,6 @@ import pytest
 import requests
 import urllib3
 
-# Отключаем предупреждения SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def pytest_configure(config):
